@@ -6,11 +6,11 @@ from anomalydetector import AnomalyDetector
 
 def call_anomaly_detection_script(data_list):
     
-    list_str = ' '.join(map(str, data_list))
+    #list_str = ' '.join(map(str, data_list))
     
-    data = list(map(float, data_list.split()))
+    #data = list(map(float, data_list.split()))
     detector = AnomalyDetector()
-    output   = detector(data,'model_VB')
+    output   = detector(data_list,'model_VB')
     #try:
     #completed_process = subprocess.run(
     #    ["python", "anomalydetector.py", list_str],
