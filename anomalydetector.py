@@ -158,7 +158,7 @@ class AnomalyDetector():
 
             if model_path:
                 try:
-                  model = torch.load(model_path)
+                  model = torch.load(Path(model_path))
                 except Exception as e:
                   logging.error("Error setup_model :", exc_info=True)
                 model = model.to(self.device)
