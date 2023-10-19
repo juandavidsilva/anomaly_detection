@@ -60,7 +60,7 @@ def create_thermometer_chart(loss, threshold):
 # Function to call when 'Enter' is pressed
 def on_enter(input_list):
     result = call_anomaly_detection_script(input_list)
-    st.write(str(result))
+    st.write("This is my debug: "str(result))
     exit(0)
     st.write("Diagnostic:", result[0])
     thermometer_chart = create_thermometer_chart(result[1], result[2])
