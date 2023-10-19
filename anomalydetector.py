@@ -7,11 +7,10 @@ import json
 import math
 import sys
 
-ROOT   = Path.cwd()
+
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-        
 class Encoder(nn.Module):
 
   def __init__(self, seq_len, n_features, embedding_dim=64):
