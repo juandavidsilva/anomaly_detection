@@ -9,7 +9,7 @@ import math
 import sys
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+ROOT   = Path.cwd()
 logging.basicConfig(filename='log.txt', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 class Encoder(nn.Module):
 
@@ -158,7 +158,7 @@ class AnomalyDetector():
 
             if model_path:
                 try:
-                  model = torch.load(Path(model_path))
+                  model = torch.load(ROOT/model_path)
                 except Exception as e:
                   logging.error("Error setup_model :", exc_info=True)
                 model = model.to(self.device)
