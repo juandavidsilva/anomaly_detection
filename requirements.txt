@@ -1,0 +1,6 @@
+PyYAML
+plotly
+streamlit
+torch
+torchvision 
+torchaudio

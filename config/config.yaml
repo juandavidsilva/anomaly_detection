@@ -1,0 +1,11 @@
+models:
+  voltage_battery: "models/24h_12Voltage-Battery.pth"
+  current_battery: "models/24h_4Current-Battery.pth"
+  voltage_solar: "models/24h_90Voltage-Solar.pth"
+  current_solar: "models/24h_8Current-Solar.pth"
+
+thresholds:
+  voltage_battery: 12
+  current_battery: 4
+  voltage_solar: 90
+  current_solar: 8
