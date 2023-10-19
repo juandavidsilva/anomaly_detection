@@ -61,6 +61,7 @@ def create_thermometer_chart(loss, threshold):
 def on_enter(input_list):
     result = call_anomaly_detection_script(input_list)
     st.write(str(result))
+    exit(0)
     st.write("Diagnostic:", result[0])
     thermometer_chart = create_thermometer_chart(result[1], result[2])
     st.plotly_chart(thermometer_chart)
