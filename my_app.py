@@ -2,21 +2,24 @@ import streamlit as st
 import plotly.graph_objects as go
 import subprocess
 import json
+from anomalydetector import AnomalyDetector
 
 def call_anomaly_detection_script(data_list):
     
     list_str = ' '.join(map(str, data_list))
     
+    data = list(map(float, data_list.split()))
+    detector = AnomalyDetector()
+    output   = detector(data,'model_VB')
     #try:
-    completed_process = subprocess.run(
-        ["python", "anomalydetector.py", list_str],
-        text=True,  
-        capture_output=True, 
-        check=True,
-
-    )
-    output = completed_process.stdout.strip() 
-    output = json.loads(output) 
+    #completed_process = subprocess.run(
+    #    ["python", "anomalydetector.py", list_str],
+    #    text=True,  
+    #    capture_output=True, 
+    #    check=True,
+    #)
+    #output = completed_process.stdout.strip() 
+    #output = json.loads(output) 
     #except subprocess.CalledProcessError as e:
     #    output = ''
     #    print("Error:", e.stderr)
