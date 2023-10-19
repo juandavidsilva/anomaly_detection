@@ -13,8 +13,7 @@ def call_anomaly_detection_script(data_list):
             text=True,  
             capture_output=True, 
             check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+
         )
         output = completed_process.stdout.strip() 
         output = json.loads(output) 
