@@ -4,12 +4,13 @@ import yaml
 from pathlib import Path
 from torch import nn
 import json
+import logging
 import math
 import sys
 
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
+logging.basicConfig(level=logging.DEBUG)
 
 class Encoder(nn.Module):
 
@@ -127,6 +128,7 @@ class AnomalyDetector():
     def __init__(self, config_path=None):
         self.device = DEVICE
         self.config = self.load_config(config_path or Path(__file__).parent / 'config' / 'config.yaml')
+       
         if self.config is not None:
             self.setup_models()
 
@@ -135,8 +137,10 @@ class AnomalyDetector():
             with open(file_path, 'r') as stream:
                 return yaml.safe_load(stream)
         except FileNotFoundError:
+            logging.error(f"Error: {file_path} does not exist.",exc_info=True)
             print(f"Error: {file_path} does not exist.")
         except yaml.YAMLError as exc:
+            logging.error(f"Error in configuration file: {exc}",exc_info=True)
             print(f"Error in configuration file: {exc}")
         return None
 
@@ -154,8 +158,10 @@ class AnomalyDetector():
             threshold = self.config['thresholds'].get(config_key)
 
             if model_path:
-
-                model = torch.load(model_path)
+                try:
+                  model = torch.load(model_path)
+                except Exception as e:
+                  logging.error("Error setup_model :", exc_info=True)
                 model = model.to(self.device)
                 setattr(self, model_attr, model)
                 setattr(self, threshold_attr, threshold)
