@@ -7,22 +7,22 @@ def call_anomaly_detection_script(data_list):
     
     list_str = ' '.join(map(str, data_list))
     
-    try:
-        completed_process = subprocess.run(
-            ["python", "anomalydetector.py", list_str],
-            text=True,  
-            capture_output=True, 
-            check=True,
+    #try:
+    completed_process = subprocess.run(
+        ["python", "anomalydetector.py", list_str],
+        text=True,  
+        capture_output=True, 
+        check=True,
 
-        )
-        output = completed_process.stdout.strip() 
-        output = json.loads(output) 
-    except subprocess.CalledProcessError as e:
-        output = ''
-        print("Error:", e.stderr)
-    except Exception as e:
-        output = ''
-        print("Exeption:", e)
+    )
+    output = completed_process.stdout.strip() 
+    output = json.loads(output) 
+    #except subprocess.CalledProcessError as e:
+    #    output = ''
+    #    print("Error:", e.stderr)
+    #except Exception as e:
+    #    output = ''
+    #    print("Exeption:", e)
     return output
 
 def create_thermometer_chart(loss, threshold):
