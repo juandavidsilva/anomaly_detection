@@ -19,8 +19,10 @@ def call_anomaly_detection_script(data_list):
         output = completed_process.stdout.strip() 
         output = json.loads(output) 
     except subprocess.CalledProcessError as e:
+        output = ''
         print("Error:", e.stderr)
     except Exception as e:
+        output = ''
         print("Exeption:", e)
     return output
 
