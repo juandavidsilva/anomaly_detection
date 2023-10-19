@@ -8,10 +8,9 @@ import logging
 import math
 import sys
 
-
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-logging.basicConfig(level=logging.DEBUG)
 
+logging.basicConfig(filename='log.txt', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 class Encoder(nn.Module):
 
   def __init__(self, seq_len, n_features, embedding_dim=64):
