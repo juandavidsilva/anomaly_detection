@@ -5,11 +5,12 @@ from pathlib import Path
 from torch import nn
 import json
 import logging
+import argparse
 import math
-import sys
+from distutils.util import strtobool
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-ROOT   = Path.cwd()
+
 logging.basicConfig(filename='log.txt', level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 class Encoder(nn.Module):
 
@@ -146,10 +147,10 @@ class AnomalyDetector():
     def setup_models(self):
         
         models_config = [
-            ("model_VB", "VB_th", "voltage_battery"),
-            ("model_CB", "CB_th", "current_battery"),
-            ("model_VS", "VS_th", "voltage_solar"),
-            ("model_CS", "CS_th", "current_solar"),
+            ("voltage_battery", "VB_th", "voltage_battery"),
+            ("current_battery", "CB_th", "current_battery"),
+            ("voltage_solar", "VS_th", "voltage_solar"),
+            ("current_solar", "CS_th", "current_solar"),
         ]
 
         for model_attr, threshold_attr, config_key in models_config:
@@ -158,35 +159,34 @@ class AnomalyDetector():
 
             if model_path:
                 try:
-                  model = torch.load(ROOT/model_path)
+                  model = torch.load(Path(__file__).parent / model_path)
                 except Exception as e:
                   logging.error("Error setup_model :", exc_info=True)
+                
                 model = model.to(self.device)
                 setattr(self, model_attr, model)
                 setattr(self, threshold_attr, threshold)
             else:
                 print(f"No model path found for {config_key} in configuration file.")
 
-    def __call__(self,inputdata,model):
-        #inputdata= self.single_shoot(inputdata)
-        x = 1000
+    def __call__(self,inputdata,model,remove_nan):
+        
+        if remove_nan:
+          inputdata = self.replace_nan_with_mean(inputdata)
+        
+        x = 1000 #<--penalty if batch of NaN is present, bias param.
         inputdata=[value if not math.isnan(value) else x for value in inputdata]
         inputdata= self.create_dataset(inputdata)
       
-        __, loss = self.predict(getattr(self,model),inputdata)#algo esta mal con la creacion del dataset
+        __, loss = self.predict(getattr(self,model),inputdata)
         
-        if loss[0] >= self.VB_th:
-           ans="Anomaly"
+        if loss[0] >= self.config['thresholds'][model]:
+           
+           ans="Anomaly Range"
         else:
-           ans="Normal"
-        return [ans,loss[0],self.VB_th]       
+           ans="Normal Range "
+        return [ans,loss[0],self.config['thresholds'][model],self.sigmoid_threshold(loss[0],self.config['thresholds'][model])]       
         
-    def single_shoot(self,input):
-        np_sequence        = np.asarray(input, dtype=np.float32)
-        tensor_sequence    = torch.tensor(np_sequence).unsqueeze(1).float() 
-        seq_len,n_features = tensor_sequence.shape[0],tensor_sequence.shape[1]
-        return [tensor_sequence], seq_len, n_features
-    
     def create_dataset(self,input):
         sequences = torch.tensor(input)
         sequences = [torch.tensor([item]) for item in sequences]
@@ -221,14 +221,48 @@ class AnomalyDetector():
 
         return predictions, losses
 
+    def replace_nan_with_mean(self,arr):
+        arr = np.asanyarray(arr)
+
+        valid_replace = np.concatenate(([False], np.isnan(arr[1:-1]) & ~np.isnan(arr[:-2]) & ~np.isnan(arr[2:]), [False]))
+        
+        arr[valid_replace] = (arr[np.roll(valid_replace, -1)] + arr[np.roll(valid_replace, 1)]) / 2
+        
+        return arr.tolist()
+    def sigmoid_threshold(self,x, threshold, k=1):
+        """
+        Applies an adjusted sigmoid function to x such that the output is a probability 
+        centered around a specific threshold.
+
+        :param x: Input value (e.g., loss value).
+        :param threshold: The loss point that will map to a probability of 0.5.
+        :param k: Factor to adjust the slope of the sigmoid function.
+        :return: Adjusted probability between 0 and 1.
+        """
+        adjusted_x  = k * (x - threshold)
+        probability = 1 / (1 + np.exp(-adjusted_x))
+        probability = float(f"{probability:.{5}g}")
+        return probability
+
 if __name__ == "__main__":
-    input_list_str = sys.argv[1]
-    data = list(map(float, input_list_str.split()))
-    detector = AnomalyDetector()
-    result   = detector(data,'model_VB')
+    parser = argparse.ArgumentParser(description="Anomaly detector")
+    parser.add_argument("input_list",type=str, help="This input must contain sequential values within a list of 24 values.")
+    parser.add_argument("model_name",type=str, help="Which model would you like to use? Options: 'voltage_battery', 'current_battery', 'voltage_solar', 'current_solar'.")
+    parser.add_argument("single_nan_remove", type=str, default=False, help="Replace NaN values with the average of the predecessor and successor values")
+    
+    args = parser.parse_args()
 
-    print(json.dumps(result))
+    if args.input_list and args.model_name:
+      try:
+        input_list = [float(item) for item in args.input_list.split(',')]
+      except ValueError as e:
+        print(f"Error: All items in input_list must be numbers separated by commas. Error details: {str(e)}")
+      
+      #input_list   = list(map(float, args.input_list.split()))
+      my_bool      = bool(strtobool(args.single_nan_remove))
+      detector     = AnomalyDetector()
+      result       = detector(input_list, args.model_name,my_bool)
 
-
-
-
+      print(json.dumps(result))
+    else:
+      parser.print_help()
