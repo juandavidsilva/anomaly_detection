@@ -8,6 +8,7 @@ import logging
 import argparse
 import math
 from distutils.util import strtobool
+from tools import replace_nan_with_mean
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -222,13 +223,8 @@ class AnomalyDetector():
         return predictions, losses
 
     def replace_nan_with_mean(self,arr):
-        arr = np.asanyarray(arr)
+      return replace_nan_with_mean(arr)
 
-        valid_replace = np.concatenate(([False], np.isnan(arr[1:-1]) & ~np.isnan(arr[:-2]) & ~np.isnan(arr[2:]), [False]))
-        
-        arr[valid_replace] = (arr[np.roll(valid_replace, -1)] + arr[np.roll(valid_replace, 1)]) / 2
-        
-        return arr.tolist()
     def sigmoid_threshold(self,x, threshold, k=1):
         """
         Applies an adjusted sigmoid function to x such that the output is a probability 
