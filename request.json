@@ -1,0 +1,11 @@
+{
+    "request": {
+        "voltage_battery": "",
+        "current_battery": "",
+        "voltage_solar": "",
+        "current_solar": ""
+    },
+    "anomalies": {},
+    "predictions": {},
+    "anomalies over predictions": {}
+}

@@ -3,6 +3,7 @@ models:
   current_battery: "models/Current-Battery.pth"
   voltage_solar: "models/Voltage-Solar.pth"
   current_solar: "models/Current-Solar.pth"
+  voltage_battery_predictor: "models/predictorVb2424"
 
 thresholds:
   voltage_battery: 19
