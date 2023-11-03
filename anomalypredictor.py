@@ -1,6 +1,5 @@
 import torch
 import yaml
-import numpy
 
 from   typing                                                 import Any
 from   pathlib                                                import Path
@@ -8,6 +7,10 @@ from   distutils.util                                         import strtobool
 from   pytorch_forecasting.models.temporal_fusion_transformer import TemporalFusionTransformer
 from   tools                                                  import replace_nan_with_mean,check_load_json,json_to_pandas,write_results
 
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning) 
+warnings.filterwarnings("ignore", category=UserWarning, module='torch.*')
+warnings.filterwarnings("ignore", ".*'source' argument that is not necessary.*")
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -67,17 +70,17 @@ class AnomalyPredictor():
         return myinput
     
     def inference(self,my_input):
-        raw_predictions = getattr(self,'Voltage-battery-predictor').predict([my_input][0], mode="raw", return_x=True)#todo: check data format in jupyter
+        raw_predictions = getattr(self,'Voltage-battery-predictor').predict([my_input][0], mode="raw", return_x=True)
         my_output       = raw_predictions.output.prediction[-1][:,3].detach().cpu().numpy() #7 quantiles by default: [0.02, 0.1, 0.25, 0.5, 0.75, 0.9, 0.98] ,50% is 3 
         return my_output
 
 
     def __call__(self, *args: Any, **kwds: Any) -> Any:
         myoutput  = dict()
-        my_input  = self.load_input(Path(__file__).parent / 'input' / 'request.json')
+        my_input  = self.load_input(Path(__file__).parent / self.config['data']['input'] / 'request.json')
         data      = self.create_dataset(my_input)
-        myoutput['Voltage-battery-predictor'] = self.inference(data)
-        write_results(myoutput)
+        myoutput['Voltage-battery-predictor'] = self.inference(data).tolist()
+        write_results({'predictor':myoutput},folder_name=self.config['data']['output'],overwrite=False)
     
 if __name__ == "__main__":
     
