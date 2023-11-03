@@ -1,3 +1,6 @@
+data:
+    input: "input"
+    output: "output"
 models:
   Voltage-Battery: "models/Voltage-Battery.pth"
   Current-Battery: "models/Current-Battery.pth"

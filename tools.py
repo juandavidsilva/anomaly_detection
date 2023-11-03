@@ -12,53 +12,49 @@ def replace_nan_with_mean(arr):
     
     return arr.tolist()
   
-def check_load_json(file_path):
+def check_load_json(file_path,predictionjson=False):
     # Load the JSON file
     with open(file_path, 'r') as file:
         data = json.load(file)
-
-    # Check for the existence of the 'request' key
-    if 'request' not in data:
-        print("The key 'request' is missing in the JSON.")
-        return False
-
-    # List of required keys within 'request'
-    required_keys = [
-        'Voltage-Battery',
-        'Current-Battery',
-        'Voltage-Solar',
-        'Current-Solar'
-    ]
-
-    # Verify required keys and the length of the lists
-    for key in required_keys:
-        if key not in data['request']:
-            print(f"The key '{key}' is missing in 'request'.")
-            return [False,data]
-
-        # Check that the list contains exactly 24 items
-        if len(data['request'][key]) != 24:
+    if predictionjson:
+        if len(data['predictor']['Voltage-battery-predictor']) != 24:
             print(f"The key '{key}' does not have a list of 24 items.")
             return [False,data]
+    else:
+        # Check for the existence of the 'request' key
+        if 'request' not in data:
+            print("The key 'request' is missing in the JSON.")
+            return False
 
-    # If everything is correct, return True
+        # List of required keys within 'request'
+        required_keys = [
+            'Voltage-Battery',
+            'Current-Battery',
+            'Voltage-Solar',
+            'Current-Solar'
+        ]
+
+        # Verify required keys and the length of the lists
+        for key in required_keys:
+            if key not in data['request']:
+                print(f"The key '{key}' is missing in 'request'.")
+                return [False,data]
+
+            # Check that the list contains exactly 24 items
+            if len(data['request'][key]) != 24:
+                print(f"The key '{key}' does not have a list of 24 items.")
+                return [False,data]
+
+        # If everything is correct, return True
     return [True,data]
 
-def json_to_pandas(json_input,doubled=True):
+def json_to_pandas(json_input,doubled=True,predictionjson=False):
     # Load json data
-    data = json_input['request']
-    # Create DataFrame from the dictionary
+    if predictionjson:
+        data = json_input['predictor']
+    else:
+        data = json_input['request']
     df = pd.DataFrame(data)
-
-    # Add 'ID' column with all rows having the string '0'
-    #df['ID'] = '0'
-
-    # Add 'time_idx' column with consecutive integers starting from 0
-    #df['time_idx'] = range(len(df))
-
-    # Reorder columns so 'ID' and 'time_idx' are at the beginning
-    #column_order = ['ID', 'time_idx'] + [col for col in df if col not in ['ID', 'time_idx']]
-    #df = df[column_order]
     df=refactor_df(df,doubled=doubled)
     return df
 
@@ -99,25 +95,33 @@ def refactor_df(df,doubled=True):
 
     return doubled_df
 
-   
-def write_results(input_dict,folder_name="output", file_name="output.json"):
+def write_results(input_dict, folder_name="output", file_name="output.json", overwrite=False):
     # Convert NumPy arrays to lists
     converted_dict = {key: value.tolist() if isinstance(value, np.ndarray) else value
-                        for key, value in input_dict.items()}
+                      for key, value in input_dict.items()}
 
     # Define the output folder path
     output_folder = Path(__file__).parent / folder_name
-    
+
     # Create the output folder if it does not exist
     output_folder.mkdir(parents=True, exist_ok=True)
 
     # Define the full path for the output file
     file_path = output_folder / file_name
 
-    # Write the converted dictionary to a JSON file
-    with file_path.open('w') as json_file:
-        json.dump(converted_dict, json_file, indent=4)
-    
+    # Check if the file exists
+    if file_path.is_file() and not overwrite:
+        with open(file_path, 'r') as json_file:
+            data = json.load(json_file)
+            # Assuming you want to update the JSON with new values from converted_dict
+            data.update(converted_dict)
+        with open(file_path, 'w') as json_file:
+            json.dump(data, json_file, indent=4)
+    else:
+        # If the file does not exist or overwrite is True, write the converted dictionary to a new JSON file
+        with open(file_path, 'w') as json_file:
+            json.dump(converted_dict, json_file, indent=4)
+
     print(f"JSON file saved at: {file_path}")
 
 if __name__ == "__main__":
