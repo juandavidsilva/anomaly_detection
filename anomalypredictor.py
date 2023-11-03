@@ -1,13 +1,13 @@
 import torch
 import yaml
-import json 
-import numpy  as np
+import numpy
 
 from   typing                                                 import Any
 from   pathlib                                                import Path
 from   distutils.util                                         import strtobool
 from   pytorch_forecasting.models.temporal_fusion_transformer import TemporalFusionTransformer
-from   tools                                                  import replace_nan_with_mean,check_load_json,json_to_pandas
+from   tools                                                  import replace_nan_with_mean,check_load_json,json_to_pandas,write_results
+
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -15,7 +15,6 @@ class AnomalyPredictor():
     def __init__(self, config_path=None):
         self.device = DEVICE
         self.config = self.load_config(config_path or Path(__file__).parent / 'config' / 'config.yaml')
-        
         
         if self.config is not None:
             self.setup_models()
@@ -41,60 +40,47 @@ class AnomalyPredictor():
         return my_input
 
     def setup_models(self):
-        
-        models_config = [
-            ("voltage_battery_predictor"),
-        ]
+            if not hasattr(self, '_model_cache'):
+                self._model_cache = {}
 
-        for config_key in models_config:
-            model_attr = config_key
-            model_path = self.config['models'].get(config_key)
+            models_config = [
+                "Voltage-battery-predictor",
+            ]
 
-            if model_path:
-               model = TemporalFusionTransformer.load_from_checkpoint(checkpoint_path=Path(__file__).parent / model_path,map_location=torch.device('cpu'))
-               
-               setattr(self, model_attr, model)
-            else:
-                print(f"No model path found for {config_key} in configuration file.")
+            for config_key in models_config:
+                if config_key not in self._model_cache:
+                    model_path = self.config['models'].get(config_key)
+                    if model_path:
+                        model = TemporalFusionTransformer.load_from_checkpoint(
+                            checkpoint_path=Path(__file__).parent / model_path,
+                            map_location=torch.device('cpu')
+                        )
+                        self._model_cache[config_key] = model
+                    else:
+                        print(f"No model path found for {config_key} in configuration file.")
+                setattr(self, config_key, self._model_cache[config_key])
     
     def create_dataset(self,myinput):
-        myinput     = json_to_pandas(myinput)
+        myinput          = json_to_pandas(myinput)
         for col in myinput.drop(columns=['ID','time_idx']).columns.tolist():
             myinput[col] = replace_nan_with_mean(myinput[col])
         return myinput
     
     def inference(self,my_input):
-        raw_predictions = getattr(self,'voltage_battery_predictor').predict(my_input, mode="raw", return_x=True)#todo: check data format in jupyter
-        my_output       = raw_predictions.output[-1][:,:,3].detach().cpu().numpy() #7 quantiles by default: [0.02, 0.1, 0.25, 0.5, 0.75, 0.9, 0.98] ,50% is 3 
-        my_output
-    
-    def write_results(self,input_dict,folder_name="output", file_name="output.json"):
-        # Convert NumPy arrays to lists
-        converted_dict = {key: value.tolist() if isinstance(value, np.ndarray) else value
-                            for key, value in input_dict.items()}
+        raw_predictions = getattr(self,'Voltage-battery-predictor').predict([my_input][0], mode="raw", return_x=True)#todo: check data format in jupyter
+        my_output       = raw_predictions.output.prediction[-1][:,3].detach().cpu().numpy() #7 quantiles by default: [0.02, 0.1, 0.25, 0.5, 0.75, 0.9, 0.98] ,50% is 3 
+        return my_output
 
-        # Define the output folder path
-        output_folder = Path(folder_name)
-        # Create the output folder if it does not exist
-        output_folder.mkdir(parents=True, exist_ok=True)
-
-        # Define the full path for the output file
-        file_path = output_folder / file_name
-
-        # Write the converted dictionary to a JSON file
-        with file_path.open('w') as json_file:
-            json.dump(converted_dict, json_file, indent=4)
-        
-        print(f"JSON file saved at: {file_path}")
 
     def __call__(self, *args: Any, **kwds: Any) -> Any:
         myoutput  = dict()
         my_input  = self.load_input(Path(__file__).parent / 'input' / 'request.json')
         data      = self.create_dataset(my_input)
-        myoutput['voltage_battery_prediction'] = self.inference(data)
-        self.write_results(myoutput)
+        myoutput['Voltage-battery-predictor'] = self.inference(data)
+        write_results(myoutput)
     
 if __name__ == "__main__":
+    
     predict = AnomalyPredictor()
     predict()
     

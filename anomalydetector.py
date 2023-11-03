@@ -8,7 +8,8 @@ import logging
 import argparse
 import math
 from distutils.util import strtobool
-from tools import replace_nan_with_mean
+from   typing                                                 import Any
+from tools import replace_nan_with_mean,json_to_pandas,write_results,check_load_json
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -145,13 +146,23 @@ class AnomalyDetector():
             print(f"Error in configuration file: {exc}")
         return None
 
+    def load_input(self, file_path):
+        try:
+            check,my_input=check_load_json(file_path)
+            if not check:
+                raise Exception('Error with jsonfile')
+            
+        except Exception as e: 
+            print(f"Error: Check input json: {str(e)}")
+        return my_input
+    
     def setup_models(self):
         
         models_config = [
-            ("voltage_battery", "VB_th", "voltage_battery"),
-            ("current_battery", "CB_th", "current_battery"),
-            ("voltage_solar", "VS_th", "voltage_solar"),
-            ("current_solar", "CS_th", "current_solar"),
+            ("Voltage-Battery", "VB_th", "Voltage-Battery"),
+            ("Current-Battery", "CB_th", "Current-Battery"),
+            ("Voltage-Solar", "VS_th", "Voltage-Solar"),
+            ("Current-Solar", "CS_th", "Current-Solar"),
         ]
 
         for model_attr, threshold_attr, config_key in models_config:
@@ -170,33 +181,36 @@ class AnomalyDetector():
             else:
                 print(f"No model path found for {config_key} in configuration file.")
 
-    def __call__(self,inputdata,model,remove_nan):
-        
-        if remove_nan:
-          inputdata = self.replace_nan_with_mean(inputdata)
-        
-        x = 1000 #<--penalty if batch of NaN is present, bias param.
-        inputdata=[value if not math.isnan(value) else x for value in inputdata]
-        inputdata= self.create_dataset(inputdata)
+    def __call__(self, *args: Any, **kwds: Any) -> Any:
       
-        __, loss = self.predict(getattr(self,model),inputdata)
-        
-        if loss[0] >= self.config['thresholds'][model]:
-           
-           ans="Anomaly Range"
-        else:
-           ans="Normal Range "
-        return [ans,loss[0],self.config['thresholds'][model],self.sigmoid_threshold(loss[0],self.config['thresholds'][model])]       
-        
-    def create_dataset(self,input):
-        sequences = torch.tensor(input)
+      myoutput  = dict()
+      inputdata = self.load_input(Path(__file__).parent / 'input' / 'request.json')
+      inputdata= self.create_dataset(inputdata)
+      for v in ['Voltage-Battery','Current-Battery','Voltage-Solar','Current-Solar']:
+        sequences = torch.tensor(inputdata[v])
         sequences = [torch.tensor([item]) for item in sequences]
         sequences = torch.stack(sequences)
-        dataset   = [sequences]
+        dataset   = sequences
 
-        n_seq, seq_len, n_features = torch.stack(dataset).shape
+        n_seq, seq_len, n_features = torch.stack([dataset]).shape
 
-        return dataset, seq_len, n_features
+        __, loss = self.predict(getattr(self,v),[dataset, seq_len, n_features])
+        
+        if loss[0] >= self.config['thresholds'][v]:
+            ans="Anomaly"
+        else:
+            ans="Normal "
+        myoutput[v]= [ans,loss[0],self.sigmoid_threshold(loss[0],self.config['thresholds'][v])]
+      write_results({'anomaly_detector':myoutput})
+           
+    def create_dataset(self,myinput):
+        x = 1000 #<--penalty if batch of NaN is present, bias param.
+        myinput   = json_to_pandas(myinput,doubled=False)
+        for col in myinput.drop(columns=['ID','time_idx']).columns.tolist():
+            myinput[col] = replace_nan_with_mean(myinput[col])
+            myinput[col]   = [value if not math.isnan(value) else x for value in myinput[col]]
+
+        return myinput
 
     def predict(self,model, dataset):
 
@@ -208,22 +222,19 @@ class AnomalyDetector():
 
             model = model.eval()
 
-            for seq_true in dataset[0]: #aca recibo un lista 
+            seq_true = dataset[0] 
 
-                seq_true = seq_true.to(self.device)
+            seq_true = seq_true.to(self.device)
 
-                seq_pred = model(seq_true)
+            seq_pred = model(seq_true.to(dtype=torch.float32))
 
-                loss = criterion(seq_pred, seq_true)
+            loss = criterion(seq_pred, seq_true)
 
-                predictions.append(seq_pred.cpu().numpy().flatten())
+            predictions.append(seq_pred.cpu().numpy().flatten())
 
-                losses.append(loss.item())
+            losses.append(loss.item())
 
         return predictions, losses
-
-    def replace_nan_with_mean(self,arr):
-      return replace_nan_with_mean(arr)
 
     def sigmoid_threshold(self,x, threshold, k=1):
         """
@@ -241,24 +252,6 @@ class AnomalyDetector():
         return probability
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Anomaly detector")
-    parser.add_argument("input_list",type=str, help="This input must contain sequential values within a list of 24 values.")
-    parser.add_argument("model_name",type=str, help="Which model would you like to use? Options: 'voltage_battery', 'current_battery', 'voltage_solar', 'current_solar'.")
-    parser.add_argument("single_nan_remove", type=str, default=False, help="Replace NaN values with the average of the predecessor and successor values")
-    
-    args = parser.parse_args()
 
-    if args.input_list and args.model_name:
-      try:
-        input_list = [float(item) for item in args.input_list.split(',')]
-      except ValueError as e:
-        print(f"Error: All items in input_list must be numbers separated by commas. Error details: {str(e)}")
-      
-      #input_list   = list(map(float, args.input_list.split()))
-      my_bool      = bool(strtobool(args.single_nan_remove))
-      detector     = AnomalyDetector()
-      result       = detector(input_list, args.model_name,my_bool)
-
-      print(json.dumps(result))
-    else:
-      parser.print_help()
+      detector = AnomalyDetector()
+      detector()

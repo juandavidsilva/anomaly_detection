@@ -44,23 +44,22 @@ def check_load_json(file_path):
     # If everything is correct, return True
     return [True,data]
 
-def json_to_pandas(json_input):
+def json_to_pandas(json_input,doubled=True):
     # Load json data
     data = json_input['request']
-
     # Create DataFrame from the dictionary
     df = pd.DataFrame(data)
 
     # Add 'ID' column with all rows having the string '0'
-    df['ID'] = '0'
+    #df['ID'] = '0'
 
     # Add 'time_idx' column with consecutive integers starting from 0
-    df['time_idx'] = range(len(df))
+    #df['time_idx'] = range(len(df))
 
     # Reorder columns so 'ID' and 'time_idx' are at the beginning
-    column_order = ['ID', 'time_idx'] + [col for col in df if col not in ['ID', 'time_idx']]
-    df = df[column_order]
-
+    #column_order = ['ID', 'time_idx'] + [col for col in df if col not in ['ID', 'time_idx']]
+    #df = df[column_order]
+    df=refactor_df(df,doubled=doubled)
     return df
 
 def csv_to_json(file_path):
@@ -86,6 +85,40 @@ def csv_to_json(file_path):
     # Save the JSON data to the output file
     with output_path.open('w') as json_file:
         json.dump(data, json_file, indent=4)
+
+def refactor_df(df,doubled=True):
+    zeros_df               = df
+    if doubled:
+        doubled_df         = pd.concat([df, zeros_df], ignore_index=True)
+    else:
+        doubled_df         = df
+    # Add 'ID' column with all rows having the string '0'
+    doubled_df['ID']       = '0'
+    # Add 'time_idx' column with consecutive integers starting from 0
+    doubled_df['time_idx'] = range(len(doubled_df))
+
+    return doubled_df
+
+   
+def write_results(input_dict,folder_name="output", file_name="output.json"):
+    # Convert NumPy arrays to lists
+    converted_dict = {key: value.tolist() if isinstance(value, np.ndarray) else value
+                        for key, value in input_dict.items()}
+
+    # Define the output folder path
+    output_folder = Path(__file__).parent / folder_name
+    
+    # Create the output folder if it does not exist
+    output_folder.mkdir(parents=True, exist_ok=True)
+
+    # Define the full path for the output file
+    file_path = output_folder / file_name
+
+    # Write the converted dictionary to a JSON file
+    with file_path.open('w') as json_file:
+        json.dump(converted_dict, json_file, indent=4)
+    
+    print(f"JSON file saved at: {file_path}")
 
 if __name__ == "__main__":
     csv_to_json('C:/Users/juan.david/projects/datasets/battery/all/test_predictions/1h_test1.csv')

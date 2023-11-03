@@ -1,12 +1,12 @@
 models:
-  voltage_battery: "models/Voltage-Battery.pth"
-  current_battery: "models/Current-Battery.pth"
-  voltage_solar: "models/Voltage-Solar.pth"
-  current_solar: "models/Current-Solar.pth"
-  voltage_battery_predictor: "models/predictorVb2424_cpu.ckpt"
+  Voltage-Battery: "models/Voltage-Battery.pth"
+  Current-Battery: "models/Current-Battery.pth"
+  Voltage-Solar: "models/Voltage-Solar.pth"
+  Current-Solar: "models/Current-Solar.pth"
+  Voltage-battery-predictor: "models/predictorVb2424_cpu.ckpt"
 
 thresholds:
-  voltage_battery: 19
-  current_battery: 13
-  voltage_solar: 85
-  current_solar: 25
+  Voltage-Battery: 19
+  Current-Battery: 13
+  Voltage-Solar: 85
+  Current-Solar: 25
