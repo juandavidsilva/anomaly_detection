@@ -82,14 +82,15 @@ def csv_to_json(file_path):
     with output_path.open('w') as json_file:
         json.dump(data, json_file, indent=4)
 
-def refactor_df(df,doubled=True):
+def refactor_df(df,doubled=True,redo_id=True):
     zeros_df               = df
     if doubled:
         doubled_df         = pd.concat([df, zeros_df], ignore_index=True)
     else:
         doubled_df         = df
     # Add 'ID' column with all rows having the string '0'
-    doubled_df['ID']       = '0'
+    if redo_id:
+        doubled_df['ID']       = '0'
     # Add 'time_idx' column with consecutive integers starting from 0
     doubled_df['time_idx'] = range(len(doubled_df))
 
@@ -124,5 +125,26 @@ def write_results(input_dict, folder_name="output", file_name="output.json", ove
 
     print(f"JSON file saved at: {file_path}")
 
+def csv_to_pandas(csv_file_path,sep=','):
+    #1. Open csv file
+    odf = pd.read_csv(csv_file_path,sep=sep)
+    df  = odf.copy()
+    df  = refactor_df(df,doubled=False,redo_id=False)
+    return df
+
+def concat_and_save_to_csv(list_of_dfs, output_csv):
+    # Concatenate DataFrames along the vertical axis
+    combined_df = pd.concat(list_of_dfs, axis=0)
+    
+    # Reset index to ensure correct consecutiveness
+    combined_df = combined_df.reset_index(drop=True)
+    
+    # Assign new values to 'time_idx' column
+    combined_df['time_idx'] = range(1, len(combined_df) + 1)
+    
+    # Save the DataFrame to a CSV file
+    combined_df.to_csv(Path(output_csv) / 'output.csv', index=False)
+
+
 if __name__ == "__main__":
-    csv_to_json('C:/Users/juan.david/projects/datasets/battery/all/test_predictions/1h_test1.csv')
+    pass

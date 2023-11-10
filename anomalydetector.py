@@ -8,7 +8,7 @@ from   pathlib        import Path
 from   torch          import nn
 from   distutils.util import strtobool
 from   typing         import Any
-from   tools          import replace_nan_with_mean,json_to_pandas,write_results,check_load_json
+from   tools          import replace_nan_with_mean,json_to_pandas,write_results,check_load_json,csv_to_pandas,concat_and_save_to_csv
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -126,10 +126,11 @@ class RecurrentAutoencoder(nn.Module):
     return x
 
 class AnomalyDetector():
-    def __init__(self, config_path=None):
+    def __init__(self,input_file,output_path, config_path=None):
         self.device = DEVICE
         self.config = self.load_config(config_path or Path(__file__).parent / 'config' / 'config.yaml')
-       
+        self.config['data']={'input':input_file,'output':output_path}
+        
         if self.config is not None:
             self.setup_models()
 
@@ -203,7 +204,8 @@ class AnomalyDetector():
         write_results({'anomaly_in_predictions':myoutput},folder_name=self.config['data']['output'],overwrite=False)
       else:
 
-        inputdata = self.load_input(Path(__file__).parent /  self.config['data']['input'] / 'request.json')
+        inputdata = self.load_input(self.config['data']['input'])
+        #inputdata = self.load_input(Path(__file__).parent /  self.config['data']['input'] / 'request.json')
         inputdata= self.create_dataset(inputdata)
         for v in ['Voltage-Battery','Current-Battery','Voltage-Solar','Current-Solar']:
           sequences = torch.tensor(inputdata[v])
@@ -216,20 +218,64 @@ class AnomalyDetector():
           __, loss = self.predict(getattr(self,v),[dataset, seq_len, n_features])
           
           if loss[0] >= self.config['thresholds'][v]:
-              ans="Anomaly"
+              ans="anomaly"
           else:
-              ans="Normal "
+              ans="normal "
           myoutput[v]= [ans,loss[0],self.sigmoid_threshold(loss[0],self.config['thresholds'][v])]
         write_results({'anomaly_detector':myoutput},folder_name=self.config['data']['output'])
+      result = ['anomaly' if any(sub[0].strip() == 'anomaly' for sub in myoutput.values()) else 'normal']
+      return result
            
     def create_dataset(self,myinput,predictionjson=False):
-        x = 1000 #<--penalty if batch of NaN is present, bias param.
-        myinput   = json_to_pandas(myinput,doubled=False,predictionjson=predictionjson)
+        x       = 1000 #<--penalty if batch of NaN is present, bias param.
+        myinput = json_to_pandas(myinput,doubled=False,predictionjson=predictionjson)
         for col in myinput.drop(columns=['ID','time_idx']).columns.tolist():
             myinput[col] = replace_nan_with_mean(myinput[col])
-            myinput[col]   = [value if not math.isnan(value) else x for value in myinput[col]]
-
+            myinput[col] = [value if not math.isnan(value) else x for value in myinput[col]]
         return myinput
+    
+    def create_batch_dataset(self,myinput,batch=24):
+      x       = 1000 #<--penalty if batch of NaN is present, bias param.
+      myinput = csv_to_pandas(myinput,sep=';')
+      columns_to_drop = ['ID','time_idx','Time','Position - Latitude','Position - Longitude','Temperature','Class']
+      myinput = myinput.drop(columns=[col for col in columns_to_drop if col in myinput.columns])
+      for col in myinput.columns.tolist():
+        myinput[col] = replace_nan_with_mean(myinput[col])
+        myinput[col] = [value if not math.isnan(value) else x for value in myinput[col]]
+      
+      myinput = self.split_dataframe(myinput,24)
+
+      return myinput
+    
+    def split_dataframe(self,df, batch_size):
+        #batches = [df[i:i+batch_size] for i in range(0, len(df), batch_size)]
+        valid_batches = [df[i:i+batch_size] for i in range(0, len(df), batch_size) if len(df[i:i+batch_size]) == batch_size]
+        return valid_batches
+    
+    def predict_on_batch_csv(self,my_input,output_csv):
+      my_input   = self.create_batch_dataset(my_input)
+      my_results = list()
+      for inputdata in my_input:
+        anotation= dict()
+        for v in ['Voltage-Battery','Current-Battery','Voltage-Solar','Current-Solar']:
+          sequences = torch.tensor(inputdata[v].values)
+          sequences = [torch.tensor([item]) for item in sequences]
+          sequences = torch.stack(sequences)
+          dataset   = sequences
+          n_seq, seq_len, n_features = torch.stack([dataset]).shape
+          __, loss = self.predict(getattr(self,v),[dataset, seq_len, n_features])
+          
+          if loss[0] >= self.config['thresholds'][v]:
+              anotation[v] = True
+          else:
+              anotation[v] = False
+        
+        if any(anotation.values()):
+          inputdata['Class']='anomaly'
+        else:
+          inputdata['Class']='normal'
+        my_results.append(inputdata)
+      concat_and_save_to_csv(my_results,output_csv)
 
     def predict(self,model, dataset):
 
@@ -271,13 +317,10 @@ class AnomalyDetector():
         return probability
 
     def anomaly_in_predictions(self):
-      inputdata = self.load_input(Path(__file__).parent /  self.config['data']['output'] / 'output.json',predictionjson=True)
+      inputdata = self.load_input(Path(self.config['data']['output']) / 'output.json',predictionjson=True) 
+      #inputdata = self.load_input(Path(__file__).parent /  self.config['data']['output'] / 'output.json',predictionjson=True)
       inputdata= self.create_dataset(inputdata,predictionjson=True)
       return inputdata
     
-
 if __name__ == "__main__":
-
-      detector = AnomalyDetector()
-      #detector()
-      detector(anomaly_in_predictions=True)
+ pass

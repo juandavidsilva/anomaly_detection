@@ -1,12 +1,9 @@
-data:
-    input: "input"
-    output: "output"
 models:
   Voltage-Battery: "models/Voltage-Battery.pth"
   Current-Battery: "models/Current-Battery.pth"
   Voltage-Solar: "models/Voltage-Solar.pth"
   Current-Solar: "models/Current-Solar.pth"
-  Voltage-battery-predictor: "models/predictorVb2424_cpu.ckpt"
+  Voltage-battery-predictor: "models/predictorVb2424_cpu_tuned.ckpt"
 
 thresholds:
   Voltage-Battery: 19

@@ -15,10 +15,10 @@ warnings.filterwarnings("ignore", ".*'source' argument that is not necessary.*")
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class AnomalyPredictor():
-    def __init__(self, config_path=None):
+    def __init__(self,input_file,output_path, config_path=None):
         self.device = DEVICE
         self.config = self.load_config(config_path or Path(__file__).parent / 'config' / 'config.yaml')
-        
+        self.config['data']={'input':input_file,'output':output_path}
         if self.config is not None:
             self.setup_models()
 
@@ -77,8 +77,10 @@ class AnomalyPredictor():
 
     def __call__(self, *args: Any, **kwds: Any) -> Any:
         myoutput  = dict()
-        my_input  = self.load_input(Path(__file__).parent / self.config['data']['input'] / 'request.json')
+        my_input  = self.load_input(self.config['data']['input'])
         data      = self.create_dataset(my_input)
+        if kwds['anomaly_input']:
+            data['Class']=kwds['anomaly_input'][0]
         myoutput['Voltage-battery-predictor'] = self.inference(data).tolist()
         write_results({'predictor':myoutput},folder_name=self.config['data']['output'],overwrite=False)
     
