@@ -78,7 +78,7 @@ Go to the project directory
 Build docker image
 
 ```bash
-  docker build -t anomaly 
+  docker build -t anomaly .
 ```
 
 run image (with default threshold values)

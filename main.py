@@ -5,8 +5,8 @@ from anomalydetector  import AnomalyDetector,RecurrentAutoencoder,Decoder,Encode
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Anomaly Detector and Predictor")
     parser.add_argument('input_file', type=str, help="Path to the input file")
-    parser.add_argument('output_path', type=str, help="output path")
-    parser.add_argument('config_file', type=str, help="config.yaml")
+    parser.add_argument('output_path', type=str, help="Where will the output file be written")
+    parser.add_argument('--config_file',default=None, type=str, help="config.yaml file")
     args = parser.parse_args()
 
     detector = AnomalyDetector(args.input_file,args.output_path,config_path=args.config_file)
