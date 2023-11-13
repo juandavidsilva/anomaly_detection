@@ -89,7 +89,7 @@ run image (with default threshold values)
 
 run image with modified threshold vaslues
 ```bash
-docker run -v path/to/input/file:/app/data -v path/to/output/folder:/app/out anomaly /app/data/test.json /app/out /app/data/config.yaml
+docker run -v path/to/input/file:/app/data -v path/to/output/folder:/app/out -v path/to/config/folder:/app/cfg anomaly /app/data/test.json /app/out --config_file /app/cfg/cfg.yaml
 ```
 
 ## Authors
